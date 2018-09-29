@@ -1,0 +1,25 @@
+{
+  "name": "capriko-restful",
+  "version": "0.0.1",
+  "description": "Nodejs library to build RESTful APIs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/williamwagnerbr/capriko-restful.git"
+  },
+  "keywords": [
+    "rest",
+    "restful",
+    "api",
+    "express"
+  ],
+  "author": "williamwagnerbr",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/williamwagnerbr/capriko-restful/issues"
+  },
+  "homepage": "https://github.com/williamwagnerbr/capriko-restful#readme"
+}

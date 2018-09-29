@@ -1,2 +1,2 @@
 # capriko-restful
-Nodejs library for build RESTful APIs
+Nodejs library to build RESTful APIs
