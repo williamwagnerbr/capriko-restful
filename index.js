@@ -1,4 +1,4 @@
-var validator = require('./source/validator')
+var validator = require('./validator')
 
 var capriko = {
   parser: {
