@@ -124,7 +124,7 @@ validator.client = function () {
     },
     get: function (name) {
       return filters[name]
-    }
+    },
     getAll: function () {
       return Object.keys(filters)
     },

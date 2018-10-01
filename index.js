@@ -17,19 +17,19 @@ var capriko = {
     default: function () {
       return {
         findAll: function (cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         findOne: function (id, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         createOne: function (data, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         updateOne: function (id, data, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         deleteOne: function (id, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         }
       }
     }
@@ -38,19 +38,19 @@ var capriko = {
     default: function () {
       return {
         findAll: function (cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         findOne: function (id, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         createOne: function (input, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         updateOne: function (id, input, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         },
         deleteOne: function (id, cb) {
-          cb(throw new Error('not available yet'))
+          cb(new Error('not available yet'))
         }
       }
     }
@@ -89,37 +89,41 @@ capriko.storage.knex = function (settings) {
   return {
     factory: function (userParams) {
       var defaultParams = {
-        user: null,
-        user_field: 'user_id'
+        fks: {},
+        pk: 'id'
       }
 
       var params = Object.assign({}, defaultParams, userParams)
 
+      function buildQuery (query) {
+        Object.keys(params.fks).forEach(function (field) {
+          query.where(field, params.fks[field])
+        })
+        return query
+      }
+
+      function buildData (data) {
+        Object.keys(params.fks).forEach(function (field) {
+          data[field] = params.fks[field]
+        })
+        return data
+      }
+
       return {
         findAll: function (cb) {
-          var query = settings.db(params.resource)
-
-          if (params.user) {
-            query.where(params.user_field, params.user)
-          }
-
-          query
+          buildQuery(settings.db(params.resource))
             .then(function (rows) {
               cb(null, rows)
+              return null
             })
             .catch(function (err) {
               cb(err)
+              return null
             })
         },
         findOne: function (id, cb) {
-          var query = settings.db(params.resource)
-
-          if (params.user) {
-            query.where(params.user_field, params.user)
-          }
-
-          query
-            .where('id', id)
+          buildQuery(settings.db(params.resource))
+            .where(params.pk, id)
             .first()
             .then(function (row) {
               if (row) {
@@ -131,16 +135,13 @@ capriko.storage.knex = function (settings) {
             })
             .catch(function (err) {
               cb(err)
+              return null
             })
         },
         createOne: function (data, cb) {
-          if (params.user) {
-            data[params.user_field] = params.user
-          }
-
           settings.db(params.resource)
-            .insert(data)
-            .returning('id')
+            .insert(buildData(data))
+            .returning(params.pk)
             .then(function (row) {
               cb(null, row[0])
               return true
@@ -151,18 +152,9 @@ capriko.storage.knex = function (settings) {
             })
         },
         updateOne: function (id, data, cb) {
-          if (params.user) {
-            data[params.user_field] = params.user
-          }
-
-          var query = settings.db(params.resource)
-
-          if (params.user) {
-            query.where(params.user_field, params.user)
-          }
-
-          query.where('id', id)
-            .update(data)
+          buildQuery(settings.db(params.resource))
+            .where(params.pk, id)
+            .update(buildData())
             .then(function (row) {
               if (row.length < 1) {
                 cb(new Error('Not updated'))
@@ -176,13 +168,8 @@ capriko.storage.knex = function (settings) {
             })
         },
         deleteOne: function (id, cb) {
-          var query = settings.db(params.resource)
-
-          if (params.user) {
-            query.where(params.user_field, params.user)
-          }
-
-          query.where('id', id)
+          buildQuery(settings.db(params.resource))
+            .where(params.pk, id)
             .delete()
             .then(function (row) {
               if (row.length < 1) {
@@ -258,9 +245,12 @@ capriko.model.simple = function (params) {
     }
 
     wrapper.continue()
-  }
+  }  
 
   return {
+    _getParams: function () {
+      return params
+    },
     findAll: function (callback) {
       params.storage.findAll(function (err, items) {
         if (err) {
@@ -318,8 +308,6 @@ capriko.model.simple = function (params) {
             if (err) {
               return callback(null, error(500, 'fail_to_create_record'))
             }
-
-            console.log(id)
 
             params.storage.findOne(id, function (err, item) {
               if (err) {
@@ -437,6 +425,117 @@ capriko.model.simple = function (params) {
           callback(null, { status: 200, body: 'Ok' })
         })
       })
+    },
+    updateAll: function (input, callback) {
+      var that = this
+
+      if (!input) {
+        return callback(new Error('invalid_request'))
+      }
+
+      if (!Array.isArray(input)) {
+        return callback(new Error('invalid_request'))
+      }
+
+      function updateResponse (oldValues, newValues) {
+        var response = {
+          create: [],
+          update: [],
+          delete: []
+        }
+
+        newValues.forEach(function (item) {
+          if (!item.id) {
+            response.create.push(item)
+            return null
+          }      
+        })
+
+        oldValues.forEach(function (a) {
+          var found = null
+
+          newValues.forEach(function (b) {
+            if (!b.id) {
+              return false
+            }
+
+            if (b.id === a.id) {
+              found = b
+            }
+          })
+
+          if (found !== null) {
+            response.update.push(found)
+          } else {
+            response.delete.push(a)
+          }
+        })
+
+        return response
+      }
+
+      params.storage.findAll(function (err, items) {
+        if (err) {
+          return callback(err)
+        }
+
+        var response = updateResponse(items, input)
+        var promises = []
+
+        var promiseCb = function (resolve, reject) {
+          return function (err, response) {
+            if (err) {
+              return reject(err)
+            }
+
+            if (response.status === 200 || response.status === 201) {
+              resolve(true)
+            } else {
+              resolve(false)
+            }
+          } 
+        }
+
+        response.create.forEach(function (item) {
+          promises.push(new Promise(function (resolve, reject) {
+            that.createOne(item, promiseCb(resolve, reject))
+          }))
+        })
+
+        response.update.forEach(function (item) {
+          promises.push(new Promise(function (resolve, reject) {
+            that.updateOne(item.id, item, promiseCb(resolve, reject))
+          }))
+        })
+
+        response.delete.forEach(function (item) {
+          promises.push(new Promise(function (resolve, reject) {
+            that.deleteOne(item.id, promiseCb(resolve, reject))
+          }))
+        })
+
+        Promise.all(promises)
+          .then(function (rr) {
+            that.findAll(function (err, response) {
+              callback(err, response)
+            })
+          })
+          .catch(function (err) {
+            callback(err)
+          })
+      })
+    }
+  }
+}
+
+capriko.util.express = {
+  handler: function (req, res, next) {
+    return function (err, response) {
+      if (err) {
+        return res.status(500).send('unexpected_error')
+      }
+
+      res.status(response.status).send(response.body)
     }
   }
 }
