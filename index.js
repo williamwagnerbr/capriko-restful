@@ -154,7 +154,7 @@ capriko.storage.knex = function (settings) {
         updateOne: function (id, data, cb) {
           buildQuery(settings.db(params.resource))
             .where(params.pk, id)
-            .update(buildData())
+            .update(buildData(data))
             .then(function (row) {
               if (row.length < 1) {
                 cb(new Error('Not updated'))
@@ -358,6 +358,7 @@ capriko.model.simple = function (params) {
 
       params.storage.findOne(id, function (err, oldVal) {
         if (err) {
+          console.log(err)
           return callback(null, error(404, 'not_found'))
         }
 
